@@ -3,7 +3,7 @@
 Usage(){
     cat <<EOF
 
-Usage: $0 <--pass> <--user> [<-t> | <--tar filename>]
+Usage: $0 <--pass> <--user> [-t | --tar <filename>]
 
 生成Docker使用的客户端证书
 
