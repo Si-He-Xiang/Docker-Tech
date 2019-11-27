@@ -12,15 +12,16 @@ EMAIL=
 Usage(){
     cat <<EOF
 
-Usage: $0 <--pass> <--email> <[--domain][--ip]>... [OPTIONS]
+Usage: $0 <--pass> <--email> <[--domain] [--ip] [--altauto]>... [OPTIONS]
 
 生成Docker使用的CA和服务端证书
 
 Requires:
   --pass string             CA的签名密码
   --email string            用于管理证书的邮箱,CA根证书中的"Email Address"
-  --domain string           服务器接受访问的域名(可以多个)
-  --ip string               服务器接受访问的IP地址(可以多个)
+  --domain string           服务器接受访问的域名(altName),允许多值
+  --ip string               服务器接受访问的IP地址(altName),允许多值
+  --altauto                 自动生成altName
 
 Options:
   --country string          CA根证书中的"Country Name",缺省值"${Country}"
@@ -38,19 +39,25 @@ command_error(){
   exit 1
 }
 
+
+
 if [[ "$1" == "-h" || "$1" == "--help" || -z "$1" ]]; then
   Usage
 fi
 
 
-ACCEPT_STRING=
+
+
+ALT_NAME=IP:127.0.0.1
 ACCEPT_DOMAIN=()
 ACCEPT_IP=()
+ALT_AUTO=
 
 while [ $# -ge 1 ] ; do
   case "$1" in
     --domain) if [[ "$2" == -* || -z "$2"  ]]; then command_error $1 ; else ACCEPT_DOMAIN[${#ACCEPT_DOMAIN[*]}]=$2; shift 2; fi ;;
     --ip) if [[ "$2" == -* || -z "$2"  ]]; then command_error $1 ; else ACCEPT_IP[${#ACCEPT_IP[*]}]=$2; shift 2; fi ;;
+    --altauto) ALT_AUTO=1; shift 1;;
     --email) if [[ "$2" == -* || -z "$2"  ]]; then command_error $1 ; else EMAIL="$2"; shift 2; fi ;;
     --pass) if [[ "$2" == -* || -z "$2"  ]]; then command_error $1 ; else PASS="$2"; shift 2; fi ;;
     --country) if [[ "$2" == -* || -z "$2" ]]; then command_error $1 ; else Country="$2"; shift 2; fi ;;
@@ -65,22 +72,35 @@ while [ $# -ge 1 ] ; do
   esac    
 done
 
-if [[ ${#ACCEPT_DOMAIN[*]} == 0 && ${#ACCEPT_IP[*]} == 0 ]]; then
-  echo '请指定 --domain 或 --ip 参数'
+if [[ ${#ACCEPT_DOMAIN[*]} == 0 && ${#ACCEPT_IP[*]} == 0 && -z "${ALT_AUTO}" ]]; then
+  echo '请指定 --domain 或 --ip 或 --altauto 参数'
   exit 1
+fi
+
+if [[ ! -z ${ALT_AUTO} ]]; then
+  ALT_NAME="IP:$(hostname -i)"
+  ALT_NAME="${ALT_NAME},DNS:localhost,DNS:localhost.local"
+  ALT_NAME="${ALT_NAME},IP:::1"
+  ALT_NAME="${ALT_NAME},DNS:ip6-localhost,DNS:ip6-loopback"
+  INTERFACES=`ifconfig | grep -Po '^[^\s:]+' | grep -v 'lo\|docker'`
+  for interface in ${INTERFACES[@]};do
+    ips=$(ip addr show "$interface" | awk -F '[/[:space:]]+' '$2 == "inet" { print $3 }')
+    for ip in $ips; do
+      ALT_NAME="${ALT_NAME},IP:$ip"
+    done
+  done
+  echo ${ALT_NAME}
 fi
 
 for domain in ${ACCEPT_DOMAIN[@]}
 do
-  ACCEPT_STRING=${ACCEPT_STRING}DNS:${domain},
+  ALT_NAME=${ALT_NAME},DNS:${domain}
 done
 
 for ip in ${ACCEPT_IP[@]}
 do
-  ACCEPT_STRING=${ACCEPT_STRING}IP:${ip},
+  ALT_NAME=${ALT_NAME},IP:${ip},
 done
-
-ACCEPT_STRING=${ACCEPT_STRING}IP:127.0.0.1
 
 # 验证密码是否输入
 if [ -z "${PASS}" ] ;then
@@ -105,7 +125,7 @@ openssl req -passin pass:${PASS} -new -x509 -days 365 -key ${SERVER_PATH}/ca-key
 
 openssl genrsa -out ${SERVER_PATH}/server-key.pem 4096
 openssl req -subj "/CN=${CommonName}" -sha256 -new -key ${SERVER_PATH}/server-key.pem -out ${SERVER_PATH}/server.csr
-echo subjectAltName = ${ACCEPT_STRING} >> ${SERVER_PATH}/extfile.cnf
+echo subjectAltName = ${ALT_NAME} >> ${SERVER_PATH}/extfile.cnf
 echo extendedKeyUsage = serverAuth >> ${SERVER_PATH}/extfile.cnf
 openssl x509 -passin pass:${PASS} -req -days 365 -sha256 -in ${SERVER_PATH}/server.csr -CA ${SERVER_PATH}/ca.pem -CAkey ${SERVER_PATH}/ca-key.pem -CAcreateserial -out ${SERVER_PATH}/server-cert.pem -extfile ${SERVER_PATH}/extfile.cnf
 
