@@ -6,7 +6,6 @@ State=Beijing
 Locality=Beijing
 Organization=SHX
 Unit=TechEdu
-CommonName=si-he-xiang.github.com
 EMAIL=
 HOST=
 
@@ -17,7 +16,6 @@ while [ $# -ge 2 ] ; do
     --locality) Locality="$2"; shift 2;;
     --organization) Organization="$2"; shift 2;;
     --unit) State="$2"; shift 2;;
-    --common-name) CommonName="$2"; shift 2;;
     --email) EMAIL="$2"; shift 2;;
     --pass) PASS="$2"; shift 2;;
     --host) HOST="$2"; shift 2;;
@@ -38,14 +36,11 @@ fi
 
 # 验证主机域名是否输入
 if [ -z "${HOST}" ] ;then
-  HOST="${CommonName}"
-fi
-if [ -z "${HOST}" ] ;then
   echo "请输入主机名称 --host xxxx.xxx.xxx"
   exit 1
 fi
 
-SUBJ="/C=${Country}/ST=${State}/L=${Locality}/O=${Organization}/OU=${Unit}/CN=${CommonName}/emailAddress=${EMAIL}"
+SUBJ="/C=${Country}/ST=${State}/L=${Locality}/O=${Organization}/OU=${Unit}/CN=${HOST}/emailAddress=${EMAIL}"
 
 # 生成CA证书及服务端秘钥
 SERVER_PATH="./server"
