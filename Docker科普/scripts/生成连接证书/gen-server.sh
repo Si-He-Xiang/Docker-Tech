@@ -89,7 +89,6 @@ if [[ ! -z ${ALT_AUTO} ]]; then
       ALT_NAME="${ALT_NAME},IP:$ip"
     done
   done
-  echo ${ALT_NAME}
 fi
 
 for domain in ${ACCEPT_DOMAIN[@]}
