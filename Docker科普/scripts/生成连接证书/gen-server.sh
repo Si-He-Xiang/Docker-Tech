@@ -78,11 +78,11 @@ if [[ ${#ACCEPT_DOMAIN[*]} == 0 && ${#ACCEPT_IP[*]} == 0 && -z "${ALT_AUTO}" ]];
 fi
 
 if [[ ! -z ${ALT_AUTO} ]]; then
-  ALT_NAME="IP:$(hostname -i)"
+  # ALT_NAME="${ALT_NAME},IP:$(hostname -i)"
   ALT_NAME="${ALT_NAME},DNS:localhost,DNS:localhost.local"
   ALT_NAME="${ALT_NAME},IP:::1"
   ALT_NAME="${ALT_NAME},DNS:ip6-localhost,DNS:ip6-loopback"
-  INTERFACES=`ifconfig | grep -Po '^[^\s:]+' | grep -v 'lo\|docker'`
+  INTERFACES=`(ifconfig | grep -Po '^[^\s:]+' | grep -v 'lo\|docker') 2>/dev/null || (ip addr | grep -Po '(?<=^\d:\s)[^\s:]+' | grep -v 'lo\|docker') 2>/dev/null`
   for interface in ${INTERFACES[@]};do
     ips=$(ip addr show "$interface" | awk -F '[/[:space:]]+' '$2 == "inet" { print $3 }')
     for ip in $ips; do
@@ -98,7 +98,7 @@ done
 
 for ip in ${ACCEPT_IP[@]}
 do
-  ALT_NAME=${ALT_NAME},IP:${ip}
+  ALT_NAME=${ALT_NAME},IP:${ip},
 done
 
 # 验证密码是否输入
