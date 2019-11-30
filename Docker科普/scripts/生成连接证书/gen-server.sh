@@ -98,7 +98,7 @@ done
 
 for ip in ${ACCEPT_IP[@]}
 do
-  ALT_NAME=${ALT_NAME},IP:${ip},
+  ALT_NAME=${ALT_NAME},IP:${ip}
 done
 
 # 验证密码是否输入
